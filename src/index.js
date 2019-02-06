@@ -91,9 +91,20 @@ module.exports = function (connect) {
       if (options.url) {
         // New native connection using url + mongoOptions
         MongoClient.connect(options.url, options.mongoOptions || {}, newConnectionCallback)
+      } else if (options.mongooseConnection) {
+        // Re-use existing or upcoming mongoose connection
+        if (options.mongooseConnection.readyState === 1) {
+          this.handleNewConnectionAsync(null, options.mongooseConnection.db)
+        } else {
+          options.mongooseConnection.once('open', () => this.handleNewConnectionAsync(null, options.mongooseConnection.db))
+        }
       } else if (options.db) {
         // Re-use existing or upcoming native connection
         this.handleNewConnectionAsync(null, options.db)
+      } else if (options.dbPromise) {
+        options.dbPromise
+          .then(db => this.handleNewConnectionAsync(null, db))
+          .catch(err => this.connectionFailed(err))
       } else {
         throw new Error('Connection strategy not found')
       }

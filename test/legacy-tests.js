@@ -3,6 +3,7 @@
 const expressSession = require('express-session')
 const MongoStore = require('..')(expressSession)
 const assert = require('assert')
+const mongoose = require('mongoose')
 
 const connectionString = process.env.MONGODB_URL || 'mongodb://localhost/connect-mongo-test'
 
@@ -25,7 +26,6 @@ exports.test_setup = function(done) {
 
 exports.test_tear_down = function(done) {
   if (!mongoClient.isConnected()) return done(new Error('shared mongo client was disconnected during tests!'))
-  
   mongoClient.close()
   return done()
 }
@@ -97,6 +97,16 @@ const open_db = function (options, callback) {
 const cleanup = function (store, db, collection, callback) {
   collection.drop(() => {
     callback()
+  })
+}
+
+function getMongooseConnection() {
+  return mongoose.createConnection(connectionString)
+}
+
+function getDbPromise() {
+  return new Promise((resolve, reject) => {
+    resolve(db)
   })
 }
 
@@ -397,6 +407,51 @@ exports.test_options_no_db = function (done) {
     Error)
 
   done()
+}
+
+/* Options.mongooseConnection tests */
+
+exports.test_set_with_mongoose_db = function (done) {
+  const mongooseConnection = getMongooseConnection()
+  open_db({mongooseConnection}, (store, db, collection) => {
+    const sid = 'test_set-sid'
+    const data = make_data()
+
+    store.set(sid, data, err => {
+      assert.equal(err, null)
+
+      // Verify it was saved
+      collection.findOne({_id: sid}, (err, session) => {
+        assert_session_equals(sid, data, session)
+
+        cleanup(store, db, collection, () => {
+          mongooseConnection.close(done());
+        })
+      })
+    })
+  })
+}
+
+/* Options.dbPromise tests */
+
+exports.test_set_with_promise_db = function (done) {
+  open_db({dbPromise: getDbPromise()}, (store, db, collection) => {
+    const sid = 'test_set-sid'
+    const data = make_data()
+
+    store.set(sid, data, err => {
+      assert.equal(err, null)
+
+      // Verify it was saved
+      collection.findOne({_id: sid}, (err, session) => {
+        assert_session_equals(sid, data, session)
+
+        cleanup(store, db, collection, () => {
+          done()
+        })
+      })
+    })
+  })
 }
 
 /* Tests with existing mongodb native db object */
