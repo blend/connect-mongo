@@ -8,6 +8,28 @@ const connectionString = process.env.MONGODB_URL || 'mongodb://localhost/connect
 
 const mongo = require('mongodb')
 
+// use mongo pooling / shared db object with global setup method
+let mongoClient;
+let db;
+
+exports.test_setup = function(done) {
+  mongo.MongoClient.connect(connectionString, (err, client) => {
+    mongoClient = client;
+    db = mongoClient.db()
+    if (err) {
+      return done(err)
+    }
+    return done()
+  })
+}
+
+exports.test_tear_down = function(done) {
+  if (!mongoClient.isConnected()) return done(new Error('shared mongo client was disconnected during tests!'))
+  
+  mongoClient.close()
+  return done()
+}
+
 // Create a connect cookie instance
 const make_cookie = function () {
   const cookie = new expressSession.Cookie()
@@ -16,17 +38,6 @@ const make_cookie = function () {
   cookie.domain = 'cow.com'
 
   return cookie
-}
-
-function getDbPromise() {
-  return new Promise((resolve, reject) => {
-    mongo.MongoClient.connect(connectionString, (err, db) => {
-      if (err) {
-        return reject(err)
-      }
-      resolve(db)
-    })
-  })
 }
 
 // Create session data
@@ -79,18 +90,12 @@ const assert_session_equals = function (sid, data, session) {
 const open_db = function (options, callback) {
   const store = new MongoStore(options)
   store.once('connected', function () {
-    callback(this, this.mongoClient, this.collection)
+    callback(this, this.db, this.collection)
   })
-}
-
-const cleanup_store = function (store) {
-  store.mongoClient.close()
 }
 
 const cleanup = function (store, db, collection, callback) {
   collection.drop(() => {
-    db.close()
-    cleanup_store(store)
     callback()
   })
 }
@@ -100,12 +105,7 @@ function getNativeDbConnection(options, done) {
     done = options
     options = {}
   }
-  mongo.MongoClient.connect(connectionString, (err, mongoClient) => {
-    if (err) {
-      return done(err)
-    }
-    open_db(Object.assign(options, {mongoClient}), done)
-  })
+  open_db(Object.assign(options, {db}), done)
 }
 
 exports.test_set = function (done) {

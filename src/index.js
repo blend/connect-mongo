@@ -91,9 +91,9 @@ module.exports = function (connect) {
       if (options.url) {
         // New native connection using url + mongoOptions
         MongoClient.connect(options.url, options.mongoOptions || {}, newConnectionCallback)
-      } else if (options.mongoClient) {
+      } else if (options.db) {
         // Re-use existing or upcoming native connection
-        this.handleNewConnectionAsync(options.mongoClient)
+        this.handleNewConnectionAsync(null, options.db)
       } else {
         throw new Error('Connection strategy not found')
       }
@@ -106,9 +106,14 @@ module.exports = function (connect) {
       throw err
     }
 
-    handleNewConnectionAsync(mongoClient) {
-      this.mongoClient = mongoClient;
-      this.db = mongoClient.db()
+    handleNewConnectionAsync(mongoClient, db) {
+      if (db) {
+        this.db = db
+      }
+      else {
+        this.mongoClient = mongoClient
+        this.db = mongoClient.db()
+      }
       return this
         .setCollection(this.db.collection(this.collectionName))
         .setAutoRemoveAsync()

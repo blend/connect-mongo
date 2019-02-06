@@ -11,8 +11,21 @@ process.on('unhandledRejection', (reason, err) => {
 })
 
 describe('Legacy tests', function () {
+  const tests = Object.keys(legacyTests)
+
+  const setupName = 'test_setup'
+  const tearDownName = 'test_tear_down'
+
+  const setup = legacyTests[setupName]
+  const tearDown = legacyTests[tearDownName]
+
+  if (setup) before('setup legacy tests', setup)
   this.timeout(6000)
-  Object.keys(legacyTests).forEach(testName => {
+  tests.forEach(testName => {
+    if (testName == setupName || testName == tearDownName) {
+      return
+    }
     it(testName, legacyTests[testName])
   })
+  if (tearDown) after('tear down legacy tests', tearDown)
 })
