@@ -7,7 +7,6 @@ const assert = require('assert')
 const connectionString = process.env.MONGODB_URL || 'mongodb://localhost/connect-mongo-test'
 
 const mongo = require('mongodb')
-const mongoose = require('mongoose')
 
 // Create a connect cookie instance
 const make_cookie = function () {
@@ -17,10 +16,6 @@ const make_cookie = function () {
   cookie.domain = 'cow.com'
 
   return cookie
-}
-
-function getMongooseConnection() {
-  return mongoose.createConnection(connectionString)
 }
 
 function getDbPromise() {
@@ -84,12 +79,12 @@ const assert_session_equals = function (sid, data, session) {
 const open_db = function (options, callback) {
   const store = new MongoStore(options)
   store.once('connected', function () {
-    callback(this, this.db, this.collection)
+    callback(this, this.mongoClient, this.collection)
   })
 }
 
 const cleanup_store = function (store) {
-  store.db.close()
+  store.mongoClient.close()
 }
 
 const cleanup = function (store, db, collection, callback) {
@@ -105,11 +100,11 @@ function getNativeDbConnection(options, done) {
     done = options
     options = {}
   }
-  mongo.MongoClient.connect(connectionString, (err, db) => {
+  mongo.MongoClient.connect(connectionString, (err, mongoClient) => {
     if (err) {
       return done(err)
     }
-    open_db(Object.assign(options, {db}), done)
+    open_db(Object.assign(options, {mongoClient}), done)
   })
 }
 
@@ -402,50 +397,6 @@ exports.test_options_no_db = function (done) {
     Error)
 
   done()
-}
-
-/* Options.mongooseConnection tests */
-
-exports.test_set_with_mongoose_db = function (done) {
-  open_db({mongooseConnection: getMongooseConnection()}, (store, db, collection) => {
-    const sid = 'test_set-sid'
-    const data = make_data()
-
-    store.set(sid, data, err => {
-      assert.equal(err, null)
-
-      // Verify it was saved
-      collection.findOne({_id: sid}, (err, session) => {
-        assert_session_equals(sid, data, session)
-
-        cleanup(store, db, collection, () => {
-          done()
-        })
-      })
-    })
-  })
-}
-
-/* Options.dbPromise tests */
-
-exports.test_set_with_promise_db = function (done) {
-  open_db({dbPromise: getDbPromise()}, (store, db, collection) => {
-    const sid = 'test_set-sid'
-    const data = make_data()
-
-    store.set(sid, data, err => {
-      assert.equal(err, null)
-
-      // Verify it was saved
-      collection.findOne({_id: sid}, (err, session) => {
-        assert_session_equals(sid, data, session)
-
-        cleanup(store, db, collection, () => {
-          done()
-        })
-      })
-    })
-  })
 }
 
 /* Tests with existing mongodb native db object */

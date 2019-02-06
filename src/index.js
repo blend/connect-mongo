@@ -80,35 +80,20 @@ module.exports = function (connect) {
 
       this.changeState('init')
 
-      const newConnectionCallback = (err, db) => {
+      const newConnectionCallback = (err, mongoClient) => {
         if (err) {
           this.connectionFailed(err)
         } else {
-          this.handleNewConnectionAsync(db)
+          this.handleNewConnectionAsync(mongoClient)
         }
       }
 
       if (options.url) {
         // New native connection using url + mongoOptions
         MongoClient.connect(options.url, options.mongoOptions || {}, newConnectionCallback)
-      } else if (options.mongooseConnection) {
-        // Re-use existing or upcoming mongoose connection
-        if (options.mongooseConnection.readyState === 1) {
-          this.handleNewConnectionAsync(options.mongooseConnection.db)
-        } else {
-          options.mongooseConnection.once('open', () => this.handleNewConnectionAsync(options.mongooseConnection.db))
-        }
-      } else if (options.db && options.db.listCollections) {
+      } else if (options.mongoClient) {
         // Re-use existing or upcoming native connection
-        if (options.db.openCalled || options.db.openCalled === undefined) { // OpenCalled is undefined in mongodb@2.x
-          this.handleNewConnectionAsync(options.db)
-        } else {
-          options.db.open(newConnectionCallback)
-        }
-      } else if (options.dbPromise) {
-        options.dbPromise
-          .then(db => this.handleNewConnectionAsync(db))
-          .catch(err => this.connectionFailed(err))
+        this.handleNewConnectionAsync(options.mongoClient)
       } else {
         throw new Error('Connection strategy not found')
       }
@@ -121,10 +106,11 @@ module.exports = function (connect) {
       throw err
     }
 
-    handleNewConnectionAsync(db) {
-      this.db = db
+    handleNewConnectionAsync(mongoClient) {
+      this.mongoClient = mongoClient;
+      this.db = mongoClient.db()
       return this
-        .setCollection(db.collection(this.collectionName))
+        .setCollection(this.db.collection(this.collectionName))
         .setAutoRemoveAsync()
         .then(() => this.changeState('connected'))
     }
@@ -313,8 +299,8 @@ module.exports = function (connect) {
     }
 
     close() {
-      if (this.db) {
-        this.db.close()
+      if (this.mongoClient) {
+        this.mongoClient.close()
       }
     }
   }
