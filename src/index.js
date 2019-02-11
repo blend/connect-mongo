@@ -80,11 +80,12 @@ module.exports = function (connect) {
 
       this.changeState('init')
 
-      const newConnectionCallback = (err, db) => {
+      const newConnectionCallback = (err, mongoClient) => {
         if (err) {
           this.connectionFailed(err)
         } else {
-          this.handleNewConnectionAsync(db)
+          this.mongoClient = mongoClient
+          this.handleNewConnectionAsync(mongoClient.db())
         }
       }
 
@@ -98,13 +99,9 @@ module.exports = function (connect) {
         } else {
           options.mongooseConnection.once('open', () => this.handleNewConnectionAsync(options.mongooseConnection.db))
         }
-      } else if (options.db && options.db.listCollections) {
+      } else if (options.db) {
         // Re-use existing or upcoming native connection
-        if (options.db.openCalled || options.db.openCalled === undefined) { // OpenCalled is undefined in mongodb@2.x
-          this.handleNewConnectionAsync(options.db)
-        } else {
-          options.db.open(newConnectionCallback)
-        }
+        this.handleNewConnectionAsync(options.db)
       } else if (options.dbPromise) {
         options.dbPromise
           .then(db => this.handleNewConnectionAsync(db))
@@ -124,7 +121,7 @@ module.exports = function (connect) {
     handleNewConnectionAsync(db) {
       this.db = db
       return this
-        .setCollection(db.collection(this.collectionName))
+        .setCollection(this.db.collection(this.collectionName))
         .setAutoRemoveAsync()
         .then(() => this.changeState('connected'))
     }
@@ -313,8 +310,8 @@ module.exports = function (connect) {
     }
 
     close() {
-      if (this.db) {
-        this.db.close()
+      if (this.mongoClient) {
+        this.mongoClient.close()
       }
     }
   }

@@ -3,11 +3,32 @@
 const expressSession = require('express-session')
 const MongoStore = require('..')(expressSession)
 const assert = require('assert')
+const mongoose = require('mongoose')
 
 const connectionString = process.env.MONGODB_URL || 'mongodb://localhost/connect-mongo-test'
 
 const mongo = require('mongodb')
-const mongoose = require('mongoose')
+
+// use mongo pooling / shared db object with global setup method
+let mongoClient;
+let db;
+
+exports.test_setup = function(done) {
+  mongo.MongoClient.connect(connectionString, (err, client) => {
+    mongoClient = client;
+    db = mongoClient.db()
+    if (err) {
+      return done(err)
+    }
+    return done()
+  })
+}
+
+exports.test_tear_down = function(done) {
+  if (!mongoClient.isConnected()) return done(new Error('shared mongo client was disconnected during tests!'))
+  mongoClient.close()
+  return done()
+}
 
 // Create a connect cookie instance
 const make_cookie = function () {
@@ -17,21 +38,6 @@ const make_cookie = function () {
   cookie.domain = 'cow.com'
 
   return cookie
-}
-
-function getMongooseConnection() {
-  return mongoose.createConnection(connectionString)
-}
-
-function getDbPromise() {
-  return new Promise((resolve, reject) => {
-    mongo.MongoClient.connect(connectionString, (err, db) => {
-      if (err) {
-        return reject(err)
-      }
-      resolve(db)
-    })
-  })
 }
 
 // Create session data
@@ -88,15 +94,19 @@ const open_db = function (options, callback) {
   })
 }
 
-const cleanup_store = function (store) {
-  store.db.close()
-}
-
 const cleanup = function (store, db, collection, callback) {
   collection.drop(() => {
-    db.close()
-    cleanup_store(store)
     callback()
+  })
+}
+
+function getMongooseConnection() {
+  return mongoose.createConnection(connectionString)
+}
+
+function getDbPromise() {
+  return new Promise((resolve, reject) => {
+    resolve(db)
   })
 }
 
@@ -105,12 +115,7 @@ function getNativeDbConnection(options, done) {
     done = options
     options = {}
   }
-  mongo.MongoClient.connect(connectionString, (err, db) => {
-    if (err) {
-      return done(err)
-    }
-    open_db(Object.assign(options, {db}), done)
-  })
+  open_db(Object.assign(options, {db}), done)
 }
 
 exports.test_set = function (done) {
@@ -407,7 +412,8 @@ exports.test_options_no_db = function (done) {
 /* Options.mongooseConnection tests */
 
 exports.test_set_with_mongoose_db = function (done) {
-  open_db({mongooseConnection: getMongooseConnection()}, (store, db, collection) => {
+  const mongooseConnection = getMongooseConnection()
+  open_db({mongooseConnection}, (store, db, collection) => {
     const sid = 'test_set-sid'
     const data = make_data()
 
@@ -419,7 +425,7 @@ exports.test_set_with_mongoose_db = function (done) {
         assert_session_equals(sid, data, session)
 
         cleanup(store, db, collection, () => {
-          done()
+          mongooseConnection.close(done());
         })
       })
     })
