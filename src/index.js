@@ -91,7 +91,7 @@ module.exports = function (connect) {
 
       if (options.url) {
         // New native connection using url + mongoOptions
-        MongoClient.connect(options.url, { ...options.mongoOptions, useNewUrlParser: true }, newConnectionCallback)
+        MongoClient.connect(options.url, { ...(options.mongoOptions || {}), useNewUrlParser: true }, newConnectionCallback)
       } else if (options.mongooseConnection) {
         // Re-use existing or upcoming mongoose connection
         if (options.mongooseConnection.readyState === 1) {
