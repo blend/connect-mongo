@@ -51,7 +51,7 @@ describe('Events', () => {
         expect(sid).to.be('foo3')
         done()
       })
-      collection.insert({_id: 'foo3', session: {foo: 'bar1'}, expires: futureDate}, err => {
+      collection.insertOne({_id: 'foo3', session: {foo: 'bar1'}, expires: futureDate}, err => {
         expect(err).not.to.be.ok()
         store.set('foo3', {foo: 'bar2'}, noop)
       })
@@ -61,7 +61,7 @@ describe('Events', () => {
         expect(sid).to.be('foo4')
         done()
       })
-      collection.insert({_id: 'foo4', session: {foo: 'bar1'}, expires: futureDate}, err => {
+      collection.insertOne({_id: 'foo4', session: {foo: 'bar1'}, expires: futureDate}, err => {
         expect(err).not.to.be.ok()
         store.set('foo4', {foo: 'bar2'}, noop)
       })
