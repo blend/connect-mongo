@@ -84,16 +84,28 @@ module.exports = function (connect) {
         if (err) {
           this.connectionFailed(err)
         } else {
-          this.handleNewConnectionAsync(mongoClient)
+          this.mongoClient = mongoClient
+          this.handleNewConnectionAsync(mongoClient.db())
         }
       }
 
       if (options.url) {
         // New native connection using url + mongoOptions
-        MongoClient.connect(options.url, options.mongoOptions || {}, newConnectionCallback)
-      } else if (options.mongoClient) {
+        MongoClient.connect(options.url, { ...options.mongoOptions, useNewUrlParser: true }, newConnectionCallback)
+      } else if (options.mongooseConnection) {
+        // Re-use existing or upcoming mongoose connection
+        if (options.mongooseConnection.readyState === 1) {
+          this.handleNewConnectionAsync(options.mongooseConnection.db)
+        } else {
+          options.mongooseConnection.once('open', () => this.handleNewConnectionAsync(options.mongooseConnection.db))
+        }
+      } else if (options.db) {
         // Re-use existing or upcoming native connection
-        this.handleNewConnectionAsync(options.mongoClient)
+        this.handleNewConnectionAsync(options.db)
+      } else if (options.dbPromise) {
+        options.dbPromise
+          .then(db => this.handleNewConnectionAsync(db))
+          .catch(err => this.connectionFailed(err))
       } else {
         throw new Error('Connection strategy not found')
       }
@@ -106,9 +118,8 @@ module.exports = function (connect) {
       throw err
     }
 
-    handleNewConnectionAsync(mongoClient) {
-      this.mongoClient = mongoClient;
-      this.db = mongoClient.db()
+    handleNewConnectionAsync(db) {
+      this.db = db
       return this
         .setCollection(this.db.collection(this.collectionName))
         .setAutoRemoveAsync()
