@@ -338,7 +338,7 @@ exports.test_clear = function (done) {
     const sid = 'test_length-sid'
     collection.insert({_id: sid, key1: 1, key2: 'two'}, () => {
       store.clear(() => {
-        collection.count((err, count) => {
+        collection.countDocuments((err, count) => {
           assert.strictEqual(count, 0)
 
           cleanup(store, db, collection, () => {
@@ -356,7 +356,7 @@ exports.test_clear_promise = function (done) {
     collection.insert({_id: sid, key1: 1, key2: 'two'}, () => {
       store.clear()
         .then(() => {
-          collection.count((err, count) => {
+          collection.countDocuments((err, count) => {
             assert.strictEqual(count, 0)
 
             cleanup(store, db, collection, () => {

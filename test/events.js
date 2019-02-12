@@ -21,7 +21,7 @@ describe('Events', () => {
     })
     store.once('connected', () => {
       collection = store.collection
-      collection.remove({}, done)
+      collection.removeMany({}, done)
     })
   })
   afterEach(() => {

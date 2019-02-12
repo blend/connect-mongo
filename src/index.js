@@ -134,7 +134,7 @@ module.exports = function (connect) {
         case 'native':
           return this.collection.createIndex({expires: 1}, {expireAfterSeconds: 0})
         case 'interval':
-          this.timer = setInterval(() => this.collection.remove(removeQuery(), {w: 0}), this.autoRemoveInterval * 1000 * 60)
+          this.timer = setInterval(() => this.collection.deleteMany(removeQuery(), {w: 0}), this.autoRemoveInterval * 1000 * 60)
           this.timer.unref()
           return Promise.resolve()
         default:
@@ -299,7 +299,7 @@ module.exports = function (connect) {
 
     length(callback) {
       return withCallback(this.collectionReady()
-        .then(collection => collection.count({}))
+        .then(collection => collection.countDocuments({}))
         , callback)
     }
 
